@@ -1,4 +1,3 @@
-import json
 import urllib
 import requests
 import types
@@ -32,11 +31,6 @@ class MovesClient(object):
         self.use_app = use_app
         self._last_headers = None
 
-    def parse_response(self, response):
-        """Parse JSON API responses."""
-
-        return json.loads(response.text)
-
     def build_oauth_url(self, redirect_uri=None, scope="activity location"):
         params = {
             'client_id': self.client_id,
@@ -53,8 +47,10 @@ class MovesClient(object):
         encoded = urllib.urlencode(params).replace('+', '%20')
         return "%s?%s" % (self.auth_url, encoded)
 
-    def get_oauth_token(self, code, **kwargs):
-
+    def get_full_oauth_token(self, code, **kwargs):
+        '''
+        Get full token info. token, expires_in...
+        '''
         params = {
             'client_id': self.client_id,
             'client_secret': self.client_secret,
@@ -65,7 +61,15 @@ class MovesClient(object):
         if 'redirect_uri' in kwargs:
             params['redirect_uri'] = kwargs['redirect_uri']
         response = requests.post(self.token_url, params=params)
-        response = json.loads(response.content)
+
+        return response.json()
+
+
+    def get_oauth_token(self, code, **kwargs):
+        '''
+        Get access token
+        '''
+        response = self.get_full_oauth_token(code, **kwargs)
         try:
             return response['access_token']
         except:
@@ -79,7 +83,7 @@ class MovesClient(object):
         }
 
         response = requests.get(self.tokeninfo_url, params=params)
-        response = json.loads(response.content)
+        response = response.json()
         try:
             return response
         except:
@@ -124,12 +128,10 @@ class MovesClient(object):
         return resp
 
     def get(self, path, **params):
-        return self.parse_response(
-            self.api(path, 'GET', params=params))
+        return self.api(path, 'GET', params=params).json()
 
     def post(self, path, **data):
-        return self.parse_response(
-            self.api(path, 'POST', data=data))
+        return self.api(path, 'POST', data=data).json()
 
     def set_first_date(self):
         if not self.first_date:
@@ -149,9 +151,7 @@ and then parses the response.
             'Accesses the /%s API endpoints.'
             path = list(path)
             path.insert(0, base_path)
-            return self.parse_response(
-                self.api('/'.join(path), 'GET', params=params)
-                )
+            return self.api('/'.join(path), 'GET', params=params).json()
 
         # Clone a new method with the correct name and doc string.
         retval = types.FunctionType(
